@@ -14,8 +14,9 @@ from .context import set_shared_data, get_caller, register_libs_path, get_shared
 from .utils import Db
 
 __all__ = ["lab_setup", "create_project", "get_logs", 'create_clone', 'init_clone']
- 
-def export_settigns():
+
+# Function changed to its correct name
+def export_settings():
     settings = get_shared_data()
     # Change project_path to data_path parent
     pth = os.path.join(Path(settings['data_path']).parent, settings["project_name"] + ".json")
