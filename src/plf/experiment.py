@@ -119,89 +119,21 @@ def get_runnings():
     df = pd.DataFrame(rows, columns=col_names)
     return df
 
+
+
 def archive_ppl(ppls: List[str], reverse: bool = False) -> None:
+
     """
     Archive or unarchive pipelines by moving their related files
     between active and archived folders.
+
+    Parameters
+    ----------
+    ppls : List[str]
+        Pipeline IDs to archive or unarchive.
+    reverse : bool, optional
+        If True, unarchive instead of archive. Default is False.
     """
-
-    settings = get_shared_data()
-    if isinstance(ppls, str):
-        ppls = [ppls]
-
-    source = settings["data_path"]
-    destin = os.path.join(source, "Archived")
-    if reverse:
-        source, destin = destin, source
-
-    db = Db(db_path=os.path.join(source, "ppls.db"))
-    existing = [i[0] for i in db.query("SELECT pplid FROM ppls")]
-
-    if not all(p in existing for p in ppls):
-        raise ValueError(f"One or more ppls in {ppls} are invalid")
-
-    # Check if any ppl is currently running
-    for pplid in ppls:
-        rows = db.query("SELECT logid FROM runnings WHERE pplid = ?", (pplid,))
-        if rows:
-            print(f"pplid: {pplid} is running in logid: {rows[0][0]}")
-            return
-
-    logging = settings["logging"]
-
-    for pplid in ppls:
-        file_moves = []  # Track successful moves for rollback
-
-        try:
-            # Move logging files
-            for log in logging:
-                src = os.path.join(source, *log.split("."))
-                dst = os.path.join(destin, *log.split("."))
-                if os.path.exists(src):
-                    os.makedirs(os.path.dirname(dst), exist_ok=True)
-                    shutil.move(src, dst)
-                    file_moves.append((dst, src))  # for rollback
-                else:
-                    print(f"Missing file: {src}")
-
-            # Move config file
-            src_cfg = os.path.join(source, "config", f"{pplid}.json")
-            dst_cfg = os.path.join(destin, "config", f"{pplid}.json")
-            if os.path.exists(src_cfg):
-                os.makedirs(os.path.dirname(dst_cfg), exist_ok=True)
-                shutil.move(src_cfg, dst_cfg)
-                file_moves.append((dst_cfg, src_cfg))
-            else:
-                print(f"Missing config: {src_cfg}")
-
-            # Database copy
-            rows = db.query("SELECT pplid, args_hash FROM ppls WHERE pplid = ?", (pplid,))
-            if rows:
-                db1 = Db(db_path=os.path.join(destin, "ppls.db"))
-                db1.execute("INSERT INTO ppls (pplid, args_hash) VALUES (?, ?)", rows[0])
-                db1.close()
-
-            # Delete original DB record only after all moves succeed
-            db.execute("DELETE FROM ppls WHERE pplid = ?", (pplid,))
-
-            txt = "unarchived" if reverse else "archived"
-            print(f"{pplid} {txt} successfully")
-
-        except Exception as e:
-            print(f"Error while processing {pplid}: {e}")
-            # Rollback any files moved
-            for moved_dst, moved_src in reversed(file_moves):
-                try:
-                    os.makedirs(os.path.dirname(moved_src), exist_ok=True)
-                    shutil.move(moved_dst, moved_src)
-                    print(f"Rolled back {moved_dst} → {moved_src}")
-                except Exception as rollback_err:
-                    print(f"Rollback failed for {moved_dst}: {rollback_err}")
-
-        finally:
-            db.close()
-
-def archive_ppl(ppls: List[str], reverse: bool = False) -> None:
 
     if isinstance(ppls, str):
         ppls = [ppls]
